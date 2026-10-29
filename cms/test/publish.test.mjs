@@ -5,6 +5,52 @@ import path from "node:path";
 import { fixture } from "./fixture.mjs";
 import { Publisher } from "../publish.mjs";
 
+test("deleting unpublished drafts skips build and retains the public snapshot", async () => {
+  const { store } = await fixture();
+  await writeFile(
+    path.join(store.root, "src/content/posts/draft.md"),
+    "---\ntitle: Draft\ndescription: Hidden\ndraft: true\npubDatetime: 2026-01-01\n---\nHidden"
+  );
+  let builds = 0;
+  const publisher = new Publisher(store, async stage => {
+    builds++;
+    await mkdir(path.join(stage, "dist"), { recursive: true });
+    await writeFile(path.join(stage, "dist/index.html"), "public snapshot");
+  });
+  await publisher.publish();
+  const draft = await store.get("draft.md");
+  await publisher.publish(draft.id, draft.revision, { remove: true });
+  assert.equal(publisher.job.status, "success");
+  assert.equal(builds, 1);
+  assert.equal(
+    await readFile(
+      path.join(await store.sourceRoot(), "dist/index.html"),
+      "utf8"
+    ),
+    "public snapshot"
+  );
+  await assert.rejects(store.get("draft.md"), { status: 404 });
+  const privateDraft = await store.save({
+    id: "private.md",
+    title: "Private",
+    description: "Hidden",
+    body: "Private content",
+  });
+  await publisher.publish(privateDraft.id, privateDraft.revision, {
+    remove: true,
+  });
+  assert.equal(publisher.job.status, "success");
+  assert.equal(builds, 1);
+  await assert.rejects(store.get("private.md"), { status: 404 });
+  // An unpublished edit of a live article still requires a full rebuild.
+  const edit = await store.save({
+    ...(await store.get("hello.md")),
+    body: "new draft body",
+  });
+  await publisher.publish(edit.id, edit.revision, { remove: true });
+  assert.equal(builds, 2);
+});
+
 test("home introduction migrates into older releases, publishes and survives article publishing", async () => {
   const { store } = await fixture();
   const homeFile = path.join(store.root, "src/content/pages/home.md");

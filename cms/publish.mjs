@@ -16,6 +16,8 @@ import {
   atomicWrite,
   serializePost,
   contentPath,
+  readOptional,
+  parsePost,
 } from "./content.mjs";
 
 // Copy regular files only: never follow a content symlink out of its tree.
@@ -190,10 +192,27 @@ export class Publisher {
       } catch (e) {
         if (e.code !== "ENOENT") throw e;
       }
-      this.job.message = "正在生成网站与搜索索引";
-      await this.build(stage, text => {
-        this.job.log = (this.job.log + text).slice(-16000);
-      });
+      let unpublishedDeletion = false;
+      if (remove && (await this.store.current())) {
+        const publishedSource = await readOptional(
+          path.join(source, contentPath(id))
+        );
+        unpublishedDeletion =
+          publishedSource === null ||
+          parsePost(publishedSource).metadata.draft === true;
+      }
+      if (unpublishedDeletion) {
+        this.job.message = "正在删除草稿";
+        // Drafts do not contribute pages or search entries. Preserve the entire
+        // public snapshot while atomically promoting the updated content tree.
+        await copyTree(path.join(source, "dist"), path.join(stage, "dist"));
+      } else {
+        this.job.message = "正在生成页面";
+        await this.build(stage, text => {
+          this.job.log = (this.job.log + text).slice(-16000);
+          if (text.includes("Pagefind")) this.job.message = "正在更新搜索索引";
+        });
+      }
       await lstat(path.join(stage, "dist/index.html"));
       const previous = await this.store.current();
       const publishedDrafts = { ...previous?.publishedDrafts };

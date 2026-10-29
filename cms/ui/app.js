@@ -254,7 +254,7 @@ async function pollJob() {
     $("visit").hidden = job.status !== "success";
     $("job-details").open = job.status === "failed";
     setPublishing(job.status === "running");
-    if (publishing) setTimeout(pollJob, 1500);
+    if (publishing) setTimeout(pollJob, 600);
     else if (job.status === "success") {
       if (job.operation === "delete" && current?.id === job.postId) {
         current = null;
