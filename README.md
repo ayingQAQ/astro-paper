@@ -1,5 +1,7 @@
 # AstroPaper 📄
 
+Wenying 已加入轻量写作后台，支持文章编辑、图片上传、草稿与发布。运行与部署方法见 [后台使用说明](docs/CMS.md)。
+
 ![AstroPaper](public/default-og.jpg)
 [![Figma](https://img.shields.io/badge/Figma-F24E1E?style=for-the-badge&logo=figma&logoColor=white)](https://www.figma.com/community/file/1356898632249991861)
 ![Typescript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)

@@ -1,5 +1,5 @@
 ---
-import { getCollection } from "astro:content";
+import { getCollection, getEntry, render } from "astro:content";
 import { getRelativeLocaleUrl } from "astro:i18n";
 import IconRss from "@/assets/icons/IconRss.svg";
 import IconArrowRight from "@/assets/icons/IconArrowRight.svg";
@@ -13,7 +13,11 @@ import { getSortedPosts } from "@/utils/getSortedPosts";
 import { useTranslations } from "@/i18n";
 import config from "@/config";
 
-const { socials, posts: postsConfig } = config;
+const { posts: postsConfig } = config;
+const home = await getEntry("pages", "home");
+if (!home) throw new Error("Missing homepage content");
+const { Content } = await render(home);
+const socials = home.data.socials;
 
 const locale = Astro.currentLocale ?? config.site.lang;
 const t = useTranslations(locale);
@@ -35,7 +39,7 @@ const homePath = getRelativeLocaleUrl(locale, "");
   >
     <section id="hero" class="border-border border-b pt-8 pb-6">
       <h1 class="my-4 inline-block text-4xl font-bold sm:my-8 sm:text-5xl">
-        你好，欢迎来到我的博客
+        {home.data.title}
       </h1>
       <a
         target="_blank"
@@ -52,28 +56,14 @@ const homePath = getRelativeLocaleUrl(locale, "");
         <span class="sr-only">RSS 订阅</span>
       </a>
 
-      <p>
-        AstroPaper 是一个简洁、支持响应式布局、无障碍访问且对搜索引擎友好的
-        Astro
-        博客主题。它遵循最佳实践，默认支持浅色和深色模式，也可以配置更多配色方案。
-      </p>
-      <p class="mt-2">
-        阅读博客文章，或查看{" "}
-        <LinkButton
-          class="hover:text-accent underline decoration-dashed underline-offset-4"
-          href="https://github.com/satnaing/astro-paper#readme"
-        >
-          README
-        </LinkButton>{" "}
-        了解更多信息。
-      </p>
+      <div class="home-intro"><Content /></div>
       {
         socials.length > 0 && (
           <div class="mt-4 flex max-sm:flex-col sm:items-center">
             <div class="me-2 mb-1 whitespace-nowrap sm:mb-0">
               {t.home.socialLinks}:
             </div>
-            <Socials />
+            <Socials socials={socials} />
           </div>
         )
       }
@@ -124,6 +114,23 @@ const homePath = getRelativeLocaleUrl(locale, "");
   </main>
   <Footer />
 </Layout>
+
+<style>
+  .home-intro :global(p + p) {
+    margin-top: 0.5rem;
+  }
+  .home-intro :global(a) {
+    text-decoration: underline dashed;
+    text-underline-offset: 4px;
+  }
+  .home-intro :global(a:hover) {
+    color: var(--accent);
+  }
+  .home-intro :global(img) {
+    max-width: 100%;
+    height: auto;
+  }
+</style>
 
 <script>
   document.addEventListener("astro:page-load", () => {

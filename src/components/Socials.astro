@@ -2,7 +2,11 @@
 import config from "@/config";
 import LinkButton from "./LinkButton.astro";
 
-const { site, socials } = config;
+interface Props {
+  socials?: typeof config.socials;
+}
+const { site } = config;
+const { socials = config.socials } = Astro.props;
 
 const icons = import.meta.glob<{
   default: (_props: Record<string, unknown>) => unknown;

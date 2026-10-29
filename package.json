@@ -6,6 +6,11 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "cms:reset-totp": "node --env-file-if-exists=.env.cms cms/cli.mjs reset-totp",
+    "cms:init": "node --env-file-if-exists=.env.cms cms/cli.mjs init",
+    "cms:start": "node --env-file-if-exists=.env.cms cms/cli.mjs serve",
+    "cms:build": "node --env-file-if-exists=.env.cms cms/cli.mjs build",
+    "cms:test": "node --test cms/test/*.test.mjs",
     "dev": "astro dev",
     "build": "astro check && astro build && pagefind --site dist && node -e \"require('node:fs').cpSync('dist/pagefind', 'public/pagefind', { recursive: true })\"",
     "preview": "astro preview",
@@ -24,13 +29,19 @@
     "astro": "^7.0.3",
     "dayjs": "^1.11.21",
     "lodash.kebabcase": "^4.1.1",
+    "markdown-it": "^15.0.3",
+    "otpauth": "^9.5.2",
+    "proper-lockfile": "^4.1.2",
+    "qrcode": "^1.5.4",
     "rehype-callouts": "^2.2.0",
     "remark-collapse": "^0.1.2",
     "remark-toc": "^9.0.0",
+    "sanitize-html": "^2.18.1",
     "satori": "^0.26.0",
     "sharp": "^0.34.5",
     "slugify": "^1.6.9",
-    "tailwindcss": "^4.3.2"
+    "tailwindcss": "^4.3.2",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",

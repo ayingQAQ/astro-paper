@@ -1,0 +1,131 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { fixture } from "./fixture.mjs";
+import { createApp } from "../server.mjs";
+import { initializeAdmin } from "../auth.mjs";
+import { URI } from "otpauth";
+
+test("TOTP API requires CSRF and revokes sessions after binding", async t => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1800000000000 });
+  const { store } = await fixture();
+  const password = "a-long-test-password";
+  await initializeAdmin(store.data, password);
+  const server = await createApp({
+    store,
+    origin: "http://localhost",
+    secure: false,
+  });
+  await new Promise(r => server.listen(0, "127.0.0.1", r));
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}/admin/api/`;
+  const headers = {
+    "content-type": "application/json",
+    origin: "http://localhost",
+  };
+  const post = (route, value) =>
+    fetch(base + route, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(value),
+    });
+  const login = await post("login", { password });
+  headers.cookie = login.headers.get("set-cookie").split(";")[0];
+  const { csrf } = await login.json();
+  assert.equal((await post("security/setup", { password })).status, 403);
+  headers["x-csrf-token"] = csrf;
+  const setupResponse = await post("security/setup", { password });
+  assert.equal(setupResponse.status, 200);
+  const setup = await setupResponse.json();
+  const qr = await fetch(base + "security/qr", { headers });
+  assert.match(await qr.text(), /<svg/);
+  const otp = URI.parse(setup.uri);
+  assert.equal(
+    (await post("security/confirm", { code: otp.generate() })).status,
+    200
+  );
+  assert.equal((await fetch(base + "posts", { headers })).status, 401);
+  const challenge = await post("login", { password });
+  assert.equal(challenge.headers.get("set-cookie"), null);
+  assert.deepEqual(await challenge.json(), { requiresTotp: true });
+  assert.equal((await post("login", { password, code: "bad" })).status, 401);
+  t.mock.timers.tick(30000);
+  const next = await post("login", { password, code: otp.generate() });
+  assert.equal(next.status, 200);
+  assert.ok(next.headers.get("set-cookie"));
+});
+
+test("authentication, same-origin writes, private files and session logout", async t => {
+  const { store } = await fixture();
+  await initializeAdmin(store.data, "a-long-test-password");
+  const server = await createApp({
+    store,
+    origin: "http://localhost",
+    secure: false,
+  });
+  await new Promise(r => server.listen(0, "127.0.0.1", r));
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  assert.equal((await fetch(base + "/admin/api/posts")).status, 401);
+  assert.equal((await fetch(base + "/.cms/admin.json")).status, 404);
+  const login = await fetch(base + "/admin/api/login", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "http://localhost" },
+    body: JSON.stringify({ password: "a-long-test-password" }),
+  });
+  assert.equal(login.status, 200);
+  const cookie = login.headers.get("set-cookie").split(";")[0];
+  const { csrf } = await login.json();
+  assert.equal(
+    (await fetch(base + "/admin/api/posts", { headers: { cookie } })).status,
+    200
+  );
+  const headers = {
+    cookie,
+    "content-type": "application/json",
+    origin: "https://evil.test",
+    "x-csrf-token": csrf,
+  };
+  assert.equal(
+    (
+      await fetch(base + "/admin/api/preview", {
+        method: "POST",
+        headers,
+        body: '{"body":"test"}',
+      })
+    ).status,
+    403
+  );
+  headers.origin = "http://localhost";
+  delete headers["x-csrf-token"];
+  assert.equal(
+    (
+      await fetch(base + "/admin/api/preview", {
+        method: "POST",
+        headers,
+        body: "{}",
+      })
+    ).status,
+    403
+  );
+  headers["x-csrf-token"] = csrf;
+  const p = await fetch(base + "/admin/api/preview", {
+    method: "POST",
+    headers,
+    body: '{"body":"**hello**"}',
+  });
+  assert.match((await p.json()).html, /<strong>hello<\/strong>/);
+  assert.equal(
+    (
+      await fetch(base + "/admin/api/logout", {
+        method: "POST",
+        headers,
+        body: "{}",
+      })
+    ).status,
+    200
+  );
+  assert.equal(
+    (await fetch(base + "/admin/api/posts", { headers: { cookie } })).status,
+    401
+  );
+});

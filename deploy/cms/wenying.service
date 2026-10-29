@@ -1,0 +1,19 @@
+[Unit]
+Description=Wenying blog and writing studio
+After=network.target
+
+[Service]
+Type=simple
+User=wenying
+Group=wenying
+WorkingDirectory=/opt/wenying
+EnvironmentFile=/etc/wenying.env
+ExecStart=/usr/bin/node /opt/wenying/cms/cli.mjs serve
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

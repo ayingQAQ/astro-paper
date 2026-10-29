@@ -27,6 +27,14 @@ const posts = defineCollection({
 const pages = defineCollection({
   loader: glob({ pattern: "**/[^_]*.{md,mdx}", base: "./src/content/pages" }),
   schema: z.object({
+    socials: z
+      .array(
+        z.object({
+          name: z.enum(["github", "x", "linkedin", "mail"]),
+          url: z.string().regex(/^(https?:\/\/[^\s]+|mailto:[^\s@]+@[^\s@]+)$/),
+        })
+      )
+      .default([]),
     title: z.string(),
     description: z.string().optional(),
     ogImage: z.string().optional(),

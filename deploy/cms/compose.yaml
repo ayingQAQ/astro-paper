@@ -1,0 +1,16 @@
+services:
+  blog:
+    build:
+      context: ../..
+      dockerfile: deploy/cms/Dockerfile
+    init: true
+    restart: unless-stopped
+    environment:
+      CMS_ORIGIN: ${CMS_ORIGIN:?Set CMS_ORIGIN to your HTTPS blog URL}
+    ports:
+      - "127.0.0.1:4444:4444"
+    volumes:
+      - blog-data:/data
+    stop_grace_period: 30s
+volumes:
+  blog-data:

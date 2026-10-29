@@ -56,3 +56,17 @@ html.theme-revealing * {
 :target {
   scroll-margin-block: 1rem;
 }
+
+/* Keep keyboard focus perceptible without drawing a frame around content. */
+:focus-visible {
+  outline: none !important;
+}
+
+a:focus-visible {
+  text-decoration: underline !important;
+  text-underline-offset: 4px;
+}
+
+button:focus-visible {
+  background-color: var(--muted);
+}

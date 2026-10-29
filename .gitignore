@@ -31,3 +31,9 @@ public/pagefind
 
 # docker compose
 compose.override.yaml
+
+# Private CMS data and local browser checks
+.cms/
+.cms-*/
+.env.cms
+.playwright-mcp/
