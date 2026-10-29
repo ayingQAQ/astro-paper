@@ -5,10 +5,16 @@ import config from "@/config";
 type Props = {
   pageTitle: string | [string, string];
   pageDesc?: string;
+  hideHeading?: boolean;
   class?: string;
 };
 
-const { pageTitle, pageDesc, class: className } = Astro.props;
+const {
+  pageTitle,
+  pageDesc,
+  hideHeading = false,
+  class: className,
+} = Astro.props;
 
 const locale = Astro.currentLocale ?? config.site.lang;
 const backUrl = config.features.showBackButton
@@ -21,8 +27,14 @@ const backUrl = config.features.showBackButton
   id="main-content"
   class:list={["app-layout pb-4", className]}
 >
-  <h1 class="text-2xl font-semibold sm:text-3xl">{pageTitle}</h1>
-  <p class="mt-2 mb-6 italic">{pageDesc}</p>
+  <h1
+    class:list={[
+      hideHeading ? "sr-only" : "text-2xl font-semibold sm:text-3xl",
+    ]}
+  >
+    {pageTitle}
+  </h1>
+  {!hideHeading && <p class="mt-2 mb-6 italic">{pageDesc}</p>}
   <slot />
 </main>
 

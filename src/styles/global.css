@@ -5,6 +5,25 @@
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
+/* Only theme changes use the circular reveal; route transitions stay intact. */
+html.theme-revealing::view-transition-old(root),
+html.theme-revealing::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html.theme-revealing::view-transition-new(root) {
+  z-index: 1;
+}
+
+html.theme-revealing::view-transition-old(root) {
+  z-index: 0;
+}
+
+html.theme-revealing * {
+  view-transition-name: none !important;
+}
+
 @layer base {
   * {
     @apply border-border outline-accent/75;

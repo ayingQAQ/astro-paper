@@ -1,15 +1,11 @@
 ---
 import type { HTMLAttributes } from "astro/types";
-import Socials from "./Socials.astro";
-import { useTranslations } from "@/i18n";
 
 type Props = {
   noMarginTop?: boolean;
 } & HTMLAttributes<"footer">;
 
 const { noMarginTop = false, class: className, ...attrs } = Astro.props;
-
-const t = useTranslations(Astro.currentLocale);
 const currentYear = new Date().getFullYear();
 ---
 
@@ -17,14 +13,35 @@ const currentYear = new Date().getFullYear();
   class:list={["app-layout", { "mt-auto": !noMarginTop }, className]}
   {...attrs}
 >
-  <div
-    class="border-border flex flex-col items-center justify-between border-t py-6 sm:flex-row-reverse sm:py-4"
-  >
-    <Socials />
-    <div class="my-2 flex flex-col items-center whitespace-nowrap sm:flex-row">
-      <span>{t.footer.copyright} &#169; {currentYear}</span>
-      <span class="hidden sm:inline">&nbsp;|&nbsp;</span>
-      <span>{t.footer.allRightsReserved}</span>
-    </div>
+  <div class="border-border border-t py-6 sm:py-4">
+    <p class="footer-credit my-2 text-center text-base sm:text-start">
+      <span>Copyright &#169; {currentYear}</span>
+      <span aria-hidden="true"> | </span>
+      <span>
+        {"Powered by "}<a
+          href="https://github.com/withastro/astro"
+          class="hover:text-accent no-underline">Astro</a
+        >
+        {" and "}<a
+          href="https://github.com/satnaing/astro-paper"
+          class="hover:text-accent no-underline">AstroPaper</a
+        >
+      </span>
+    </p>
   </div>
 </footer>
+
+<style>
+  @font-face {
+    font-family: "STIX Italic";
+    src: url("../assets/fonts/STIX-Italic-VF.woff2") format("woff2");
+    font-style: italic;
+    font-weight: 400 700;
+    font-display: swap;
+  }
+
+  .footer-credit {
+    font-family: "STIX Italic", Georgia, serif;
+    font-style: italic;
+  }
+</style>

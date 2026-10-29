@@ -50,7 +50,7 @@ const isActive = (path: string) => {
   >
     <a
       href={getRelativeLocaleUrl(locale, "")}
-      class="absolute py-1 text-xl leading-8 font-semibold whitespace-nowrap sm:static sm:my-auto sm:text-2xl sm:leading-none"
+      class="site-title absolute py-1 text-2xl leading-8 font-normal whitespace-nowrap sm:static sm:my-auto sm:text-[28px] sm:leading-none"
     >
       {site.title}
     </a>
@@ -224,3 +224,10 @@ const isActive = (path: string) => {
   handleSkipToContent();
   document.addEventListener("astro:after-swap", handleSkipToContent);
 </script>
+
+<style>
+  .site-title {
+    font-family: Georgia, serif;
+    letter-spacing: 0.5px;
+  }
+</style>
