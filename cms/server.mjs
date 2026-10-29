@@ -96,6 +96,7 @@ export async function createApp({
   publisher = new Publisher(store),
 }) {
   const auth = new Auth(store.data);
+  await auth.load();
   await readFile(path.join(store.data, "admin.json")); // Fail closed until initialized.
   const last = await readOptional(path.join(store.data, "last-job.json"));
   if (last) publisher.job = JSON.parse(last);
@@ -137,9 +138,19 @@ export async function createApp({
           throw new HttpError(403, "请求来源无效，请使用配置的后台地址");
         if (route === "login" && req.method === "POST") {
           const value = await payload(req);
-          const session = await auth.login(value.password, value.code);
+          const session = await auth.login(
+            value.password,
+            value.code,
+            value.remember
+          );
           if (session.requiresTotp) return json(res, 200, session);
-          res.setHeader("Set-Cookie", cookie(session.token, 43200));
+          res.setHeader(
+            "Set-Cookie",
+            cookie(
+              session.token,
+              Math.max(0, Math.floor((session.expires - Date.now()) / 1000))
+            )
+          );
           return json(res, 200, { csrf: session.csrf });
         }
         const session = auth.get(req);
@@ -191,7 +202,7 @@ export async function createApp({
           return json(res, 200, result);
         }
         if (route === "logout" && req.method === "POST") {
-          auth.sessions.delete(session.token);
+          await auth.logout(session);
           res.setHeader("Set-Cookie", cookie("", 0));
           return json(res, 200, { ok: true });
         }

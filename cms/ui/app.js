@@ -282,7 +282,11 @@ $("login-form").onsubmit = async e => {
   try {
     const result = await api("login", {
       method: "POST",
-      body: { password: $("password").value, code: $("login-code").value },
+      body: {
+        password: $("password").value,
+        code: $("login-code").value,
+        remember: $("remember-device").checked,
+      },
     });
     if (result.requiresTotp) {
       $("login-code-field").hidden = false;

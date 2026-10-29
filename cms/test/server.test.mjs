@@ -7,6 +7,58 @@ import { URI } from "otpauth";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+test("remember-device cookie restores authenticated access after server restart", async t => {
+  const { store } = await fixture();
+  await initializeAdmin(store.data, "a-long-test-password");
+  let server;
+  const start = async () => {
+    server = await createApp({
+      store,
+      origin: "https://localhost",
+      secure: true,
+    });
+    await new Promise(r => server.listen(0, "127.0.0.1", r));
+    return `http://127.0.0.1:${server.address().port}/admin/api/`;
+  };
+  let base = await start();
+  t.after(() => server.close());
+  const login = await fetch(base + "login", {
+    method: "POST",
+    headers: {
+      origin: "https://localhost",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ password: "a-long-test-password", remember: true }),
+  });
+  const setCookie = login.headers.get("set-cookie");
+  assert.match(setCookie, /Max-Age=259199[89]|Max-Age=2592000/);
+  assert.match(setCookie, /HttpOnly/);
+  assert.match(setCookie, /Secure/);
+  const cookie = setCookie.split(";")[0];
+  const { csrf } = await login.json();
+  await new Promise(r => server.close(r));
+  base = await start();
+  assert.equal(
+    (await fetch(base + "posts", { headers: { cookie } })).status,
+    200
+  );
+  assert.equal(
+    (
+      await fetch(base + "logout", {
+        method: "POST",
+        headers: { cookie, origin: "https://localhost", "x-csrf-token": csrf },
+      })
+    ).status,
+    200
+  );
+  await new Promise(r => server.close(r));
+  base = await start();
+  assert.equal(
+    (await fetch(base + "posts", { headers: { cookie } })).status,
+    401
+  );
+});
+
 test("hashed assets cache permanently while HTML revalidates and admin stays private", async t => {
   const { store } = await fixture();
   await initializeAdmin(store.data, "a-long-test-password");

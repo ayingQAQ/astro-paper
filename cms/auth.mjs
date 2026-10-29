@@ -2,6 +2,7 @@ import {
   randomBytes,
   scrypt as scryptCallback,
   timingSafeEqual,
+  createHash,
 } from "node:crypto";
 import { promisify } from "node:util";
 import { readFile } from "node:fs/promises";
@@ -9,6 +10,9 @@ import path from "node:path";
 import { TOTP, Secret } from "otpauth";
 import { atomicWrite, HttpError } from "./content.mjs";
 const scrypt = promisify(scryptCallback);
+const tokenKey = token => createHash("sha256").update(token).digest("hex");
+const sessionVersion = admin =>
+  tokenKey(admin.key + (admin.sessionVersion ?? ""));
 export async function initializeAdmin(data, password) {
   if (
     typeof password !== "string" ||
@@ -35,6 +39,7 @@ export async function resetTotp(data) {
   const file = path.join(data, "admin.json");
   const admin = JSON.parse(await readFile(file, "utf8"));
   delete admin.totp;
+  admin.sessionVersion = randomBytes(16).toString("hex");
   await atomicWrite(file, JSON.stringify(admin));
 }
 function otp(secret) {
@@ -53,6 +58,45 @@ export class Auth {
     this.sessions = new Map();
     this.attempts = [];
     this.queue = Promise.resolve();
+    this.loaded = null;
+  }
+  load() {
+    return (this.loaded ??= (async () => {
+      const admin = await this.read();
+      let saved = [];
+      try {
+        saved = JSON.parse(
+          await readFile(path.join(this.data, "sessions.json"), "utf8")
+        );
+      } catch (e) {
+        if (e.code !== "ENOENT") throw e;
+      }
+      for (const [key, session] of saved) {
+        if (
+          session.expires > Date.now() &&
+          session.version === sessionVersion(admin)
+        )
+          this.sessions.set(key, session);
+      }
+    })());
+  }
+  async persistSessions() {
+    const saved = [...this.sessions]
+      .filter(([, s]) => s.remember && s.expires > Date.now())
+      .map(([key, { csrf, expires, remember, version }]) => [
+        key,
+        { csrf, expires, remember, version },
+      ]);
+    await atomicWrite(
+      path.join(this.data, "sessions.json"),
+      JSON.stringify(saved)
+    );
+  }
+  logout(session) {
+    return this.serial(async () => {
+      this.sessions.delete(tokenKey(session.token));
+      await this.persistSessions();
+    });
   }
   serial(fn) {
     const result = this.queue.then(fn);
@@ -108,7 +152,8 @@ export class Auth {
   }
   active(session) {
     if (
-      this.sessions.get(session?.token) !== session ||
+      !session?.token ||
+      this.sessions.get(tokenKey(session.token)) !== session ||
       session.expires <= Date.now()
     )
       throw new HttpError(401, "请重新登录");
@@ -141,8 +186,10 @@ export class Auth {
         secret: pending.secret,
         lastStep: this.checkCode(pending, code, 400),
       };
+      admin.sessionVersion = randomBytes(16).toString("hex");
       await this.write(admin);
       this.sessions.clear();
+      await this.persistSessions();
       this.attempts = [];
       return { ok: true };
     });
@@ -156,14 +203,17 @@ export class Auth {
       if (!admin.totp) throw new HttpError(400, "尚未启用验证器");
       this.checkCode(admin.totp, code, 400);
       delete admin.totp;
+      admin.sessionVersion = randomBytes(16).toString("hex");
       await this.write(admin);
       this.sessions.clear();
+      await this.persistSessions();
       this.attempts = [];
       return { ok: true };
     });
   }
-  login(password, code) {
+  login(password, code, remember = false) {
     return this.serial(async () => {
+      await this.load();
       this.limit();
       const admin = await this.read();
       await this.checkPassword(admin, password);
@@ -182,9 +232,17 @@ export class Auth {
       const session = {
         token,
         csrf: randomBytes(32).toString("hex"),
-        expires: now + 12 * 60 * 60 * 1000,
+        expires: now + (remember === true ? 30 * 24 : 12) * 60 * 60 * 1000,
+        remember: remember === true,
+        version: sessionVersion(admin),
       };
-      this.sessions.set(token, session);
+      this.sessions.set(tokenKey(token), session);
+      try {
+        await this.persistSessions();
+      } catch (e) {
+        this.sessions.delete(tokenKey(token));
+        throw e;
+      }
       return session;
     });
   }
@@ -194,11 +252,13 @@ export class Auth {
       .map(v => v.trim())
       .find(v => v.startsWith("wenying_session="))
       ?.slice("wenying_session=".length);
-    const session = this.sessions.get(token);
-    if (!session || session.expires < Date.now()) {
-      this.sessions.delete(token);
+    const key = typeof token === "string" ? tokenKey(token) : "";
+    const session = this.sessions.get(key);
+    if (!session || session.expires <= Date.now()) {
+      this.sessions.delete(key);
       throw new HttpError(401, "请先登录");
     }
+    session.token = token;
     return session;
   }
 }

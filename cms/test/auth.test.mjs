@@ -3,6 +3,65 @@ import assert from "node:assert/strict";
 import * as OTPAuth from "otpauth";
 import { fixture } from "./fixture.mjs";
 import { Auth, initializeAdmin, resetTotp } from "../auth.mjs";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
+test("remembered devices survive restart, expire and can be revoked", async t => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1800000000000 });
+  const { store } = await fixture();
+  await initializeAdmin(store.data, "a-long-test-password");
+  let auth = new Auth(store.data);
+  const session = await auth.login("a-long-test-password", undefined, true);
+  const req = { headers: { cookie: `wenying_session=${session.token}` } };
+  assert.equal(session.expires - Date.now(), 30 * 24 * 60 * 60 * 1000);
+  const disk = await readFile(path.join(store.data, "sessions.json"), "utf8");
+  assert.ok(!disk.includes(session.token));
+  auth = new Auth(store.data);
+  await auth.load();
+  assert.equal(auth.get(req).csrf, session.csrf);
+  await auth.logout(auth.get(req));
+  auth = new Auth(store.data);
+  await auth.load();
+  assert.throws(() => auth.get(req), { status: 401 });
+  const again = await auth.login("a-long-test-password", undefined, true);
+  t.mock.timers.tick(30 * 24 * 60 * 60 * 1000);
+  assert.throws(
+    () => auth.get({ headers: { cookie: `wenying_session=${again.token}` } }),
+    { status: 401 }
+  );
+});
+
+test("password and authenticator resets revoke saved sessions; non-remembered sessions stay temporary", async () => {
+  const { store } = await fixture();
+  const password = "a-long-test-password";
+  await initializeAdmin(store.data, password);
+  let auth = new Auth(store.data);
+  const temporary = await auth.login(password);
+  auth = new Auth(store.data);
+  await auth.load();
+  assert.throws(
+    () =>
+      auth.get({ headers: { cookie: `wenying_session=${temporary.token}` } }),
+    { status: 401 }
+  );
+  const remembered = await auth.login(password, undefined, true);
+  await initializeAdmin(store.data, password);
+  auth = new Auth(store.data);
+  await auth.load();
+  assert.throws(
+    () =>
+      auth.get({ headers: { cookie: `wenying_session=${remembered.token}` } }),
+    { status: 401 }
+  );
+  const another = await auth.login(password, undefined, true);
+  await resetTotp(store.data);
+  auth = new Auth(store.data);
+  await auth.load();
+  assert.throws(
+    () => auth.get({ headers: { cookie: `wenying_session=${another.token}` } }),
+    { status: 401 }
+  );
+});
 
 const password = "a-long-test-password";
 test("TOTP enrollment, concurrent replay, persisted replay and password reset", async t => {
@@ -10,7 +69,7 @@ test("TOTP enrollment, concurrent replay, persisted replay and password reset", 
   const { store } = await fixture();
   await initializeAdmin(store.data, password);
   const auth = new Auth(store.data);
-  const session = await auth.login(password);
+  const session = await auth.login(password, undefined, true);
   assert.deepEqual(await auth.status(), { enabled: false });
   await assert.rejects(auth.beginSetup(session, "bad"), { status: 400 });
   const setup = await auth.beginSetup(session, password);
@@ -18,6 +77,15 @@ test("TOTP enrollment, concurrent replay, persisted replay and password reset", 
   await assert.rejects(auth.confirmSetup(session, "wrong"), { status: 400 });
   await auth.confirmSetup(session, otp.generate());
   assert.equal(auth.sessions.size, 0);
+  const afterBinding = new Auth(store.data);
+  await afterBinding.load();
+  assert.throws(
+    () =>
+      afterBinding.get({
+        headers: { cookie: `wenying_session=${session.token}` },
+      }),
+    { status: 401 }
+  );
   assert.deepEqual(await auth.login(password), { requiresTotp: true });
   await assert.rejects(auth.login(password, otp.generate()), { status: 401 });
   t.mock.timers.tick(30000);
