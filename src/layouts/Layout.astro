@@ -32,6 +32,7 @@ const rssHref = getRelativeLocaleUrl(
 
 <!doctype html>
 <html
+  transition:animate="none"
   dir={site.dir ?? "ltr"}
   lang={Astro.currentLocale ?? site.lang}
   class="overflow-y-scroll scroll-smooth"
@@ -40,7 +41,6 @@ const rssHref = getRelativeLocaleUrl(
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href={getAssetPath("favicon.svg")} />
-    <link rel="icon" href={getAssetPath("favicon.ico")} />
     <link rel="canonical" href={canonicalURL} />
     <meta name="generator" content={Astro.generator} />
 
@@ -114,7 +114,7 @@ const rssHref = getRelativeLocaleUrl(
       })();
     </script>
 
-    <ClientRouter />
+    <ClientRouter fallback="swap" />
   </head>
   <body
     class="bg-background font-app text-foreground selection:bg-accent/75 selection:text-accent-foreground flex min-h-svh flex-col"

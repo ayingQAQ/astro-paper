@@ -54,14 +54,35 @@ async function payload(req) {
     throw new HttpError(400, "请求格式错误");
   }
 }
-async function serve(res, req, root, relative) {
+async function serve(res, req, root, relative, publicFile = false) {
   let file = await containedFile(root, relative);
   if ((await stat(file)).isDirectory())
     file = await containedFile(root, path.join(relative, "index.html"));
   const handle = await open(file);
+  const info = await handle.stat();
+  if (publicFile) {
+    res.setHeader(
+      "Cache-Control",
+      relative.startsWith("_astro/")
+        ? "public, max-age=31536000, immutable"
+        : "no-cache"
+    );
+    const etag = `W/"${info.size.toString(16)}-${info.mtimeMs.toString(16)}"`;
+    res.setHeader("ETag", etag);
+    if (
+      req.headers["if-none-match"]
+        ?.split(",")
+        .map(value => value.trim())
+        .includes(etag)
+    ) {
+      await handle.close();
+      res.writeHead(304);
+      return res.end();
+    }
+  }
   res.writeHead(200, {
     "Content-Type": mime[path.extname(file)] ?? "application/octet-stream",
-    "Content-Length": (await handle.stat()).size,
+    "Content-Length": info.size,
   });
   if (req.method === "HEAD") {
     await handle.close();
@@ -261,7 +282,8 @@ export async function createApp({
         res,
         req,
         root,
-        pathname === "/" ? "index.html" : pathname.slice(1)
+        pathname === "/" ? "index.html" : pathname.slice(1),
+        true
       );
     } catch (e) {
       if (res.headersSent) {

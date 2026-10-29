@@ -4,6 +4,57 @@ import { fixture } from "./fixture.mjs";
 import { createApp } from "../server.mjs";
 import { initializeAdmin } from "../auth.mjs";
 import { URI } from "otpauth";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+test("hashed assets cache permanently while HTML revalidates and admin stays private", async t => {
+  const { store } = await fixture();
+  await initializeAdmin(store.data, "a-long-test-password");
+  await mkdir(path.join(store.root, "dist/_astro"), { recursive: true });
+  await writeFile(path.join(store.root, "dist/index.html"), "first page");
+  await writeFile(path.join(store.root, "dist/_astro/app.hash.js"), "asset");
+  const server = await createApp({
+    store,
+    origin: "http://localhost",
+    secure: false,
+  });
+  await new Promise(r => server.listen(0, "127.0.0.1", r));
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const asset = await fetch(base + "/_astro/app.hash.js");
+  assert.equal(
+    asset.headers.get("cache-control"),
+    "public, max-age=31536000, immutable"
+  );
+  const html = await fetch(base + "/");
+  assert.equal(html.headers.get("cache-control"), "no-cache");
+  assert.ok(html.headers.get("etag"));
+  assert.equal(
+    (
+      await fetch(base + "/", {
+        headers: { "if-none-match": html.headers.get("etag") },
+      })
+    ).status,
+    304
+  );
+  await writeFile(
+    path.join(store.root, "dist/index.html"),
+    "updated longer page"
+  );
+  const changed = await fetch(base + "/", {
+    headers: { "if-none-match": html.headers.get("etag") },
+  });
+  assert.equal(changed.status, 200);
+  assert.equal(await changed.text(), "updated longer page");
+  assert.equal(
+    (await fetch(base + "/admin/")).headers.get("cache-control"),
+    "no-store"
+  );
+  assert.equal(
+    (await fetch(base + "/admin/api/posts")).headers.get("cache-control"),
+    "no-store"
+  );
+});
 
 test("TOTP API requires CSRF and revokes sessions after binding", async t => {
   t.mock.timers.enable({ apis: ["Date"], now: 1800000000000 });
