@@ -2,7 +2,7 @@ import { defineAstroPaperConfig } from "./src/types/config";
 
 export default defineAstroPaperConfig({
   site: {
-    url: "https://astro-paper.pages.dev/",
+    url: "https://blog.pwbing.com/",
     title: "Wenying",
     description: "一个简洁、支持响应式布局且对搜索引擎友好的 Astro 博客。",
     author: "Sat Naing",

@@ -56,6 +56,8 @@ export default defineConfig({
     },
   },
   vite: {
+    // CMS releases share dependencies through a symlink outside the build root.
+    resolve: { preserveSymlinks: true },
     plugins: [tailwindcss()],
   },
   fonts: [
