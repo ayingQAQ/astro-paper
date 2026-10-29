@@ -203,6 +203,42 @@ console.log(message);
 
 \# 不是标题
 
+## 折叠内容
+
+使用 HTML 的 `<details>` 和 `<summary>`。折叠区域里的 Markdown 前后留空行：
+
+````markdown
+<details>
+<summary>点击展开</summary>
+
+这里可以写 **粗体**、列表和代码块。
+
+- 第一项
+- 第二项
+
+```javascript
+console.log("Hello!");
+```
+
+</details>
+````
+
+<details>
+<summary>点击展开</summary>
+
+这里可以写 **粗体**、列表和代码块。
+
+- 第一项
+- 第二项
+
+```javascript
+console.log("Hello!");
+```
+
+</details>
+
+默认展开时，写成 `<details open>`。这是 HTML 写法，需要平台允许 HTML；本站文章页支持，后台预览暂不渲染 HTML。
+
 ## 文章信息
 
 Markdown 文件顶部的 Frontmatter 用于设置标题、日期和标签：
