@@ -223,6 +223,7 @@ const ogImage = ogImageUrl
     const codeBlocks = Array.from(document.querySelectorAll("pre"));
 
     for (const codeBlock of codeBlocks) {
+      if (codeBlock.querySelector(".copy-code")) continue;
       const wrapper = document.createElement("div");
       wrapper.style.position = "relative";
 
@@ -242,6 +243,19 @@ const ogImage = ogImageUrl
 
       codeBlock?.parentNode?.insertBefore(wrapper, codeBlock);
       wrapper.appendChild(codeBlock);
+
+      const language = codeBlock.dataset.language;
+      if (language) {
+        const fileLabel = codeBlock.querySelector(":scope > span");
+        if (fileLabel) {
+          fileLabel.append(document.createTextNode(` · ${language}`));
+        } else {
+          const label = document.createElement("span");
+          label.className = `code-language absolute start-3 ${topClass} rounded bg-muted border border-muted px-2 py-1 text-xs leading-4 text-foreground font-medium`;
+          label.textContent = language;
+          wrapper.appendChild(label);
+        }
+      }
 
       copyButton.addEventListener("click", async () => {
         await copyCode(codeBlock, copyButton);
