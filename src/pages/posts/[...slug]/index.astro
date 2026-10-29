@@ -252,6 +252,8 @@ const ogImage = ogImageUrl
         } else {
           const label = document.createElement("span");
           label.className = `code-language absolute start-3 ${topClass} rounded bg-muted border border-muted px-2 py-1 text-xs leading-4 text-foreground font-medium`;
+          // The offset is defined on <pre>; its sibling label cannot inherit it.
+          label.style.top = computedStyle.getPropertyValue("--file-name-offset").trim() || "-0.75rem";
           label.textContent = language;
           wrapper.appendChild(label);
         }
