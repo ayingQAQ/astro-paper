@@ -27,7 +27,33 @@ const { Content } = await render(about);
 
   <Main pageTitle={about.data.title} hideHeading class="app-prose pt-8">
     <Content />
+    <p>
+      本站已运行 <span
+        id="site-uptime"
+        data-start={about.data.siteStartedAt.toISOString()}
+        style="font-variant-numeric: tabular-nums">0</span
+      > 秒
+    </p>
   </Main>
 
   <Footer />
 </Layout>
+
+<script>
+  let timer: ReturnType<typeof setInterval> | undefined;
+  function startUptime() {
+    clearInterval(timer);
+    const counter = document.querySelector<HTMLElement>("#site-uptime");
+    if (!counter) return;
+    const start = Date.parse(counter.dataset.start!);
+    const update = () => {
+      counter.textContent = String(
+        Math.max(0, Math.floor((Date.now() - start) / 1000))
+      );
+    };
+    update();
+    timer = setInterval(update, 1000);
+  }
+  document.addEventListener("astro:page-load", startUptime);
+  document.addEventListener("astro:before-swap", () => clearInterval(timer));
+</script>

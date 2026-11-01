@@ -27,6 +27,9 @@ const posts = defineCollection({
 const pages = defineCollection({
   loader: glob({ pattern: "**/[^_]*.{md,mdx}", base: "./src/content/pages" }),
   schema: z.object({
+    siteStartedAt: z.coerce
+      .date()
+      .default(new Date("2026-10-29T00:00:00+08:00")),
     socials: z
       .array(
         z.object({

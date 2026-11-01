@@ -135,6 +135,10 @@ function localDate(iso) {
 function openEditor(post) {
   const isPage = post.kind === "page";
   const isHome = post.id === "home:page";
+  $("about-uptime").hidden = post.id !== "about:page";
+  $("site-started-at").value = localDate(
+    post.siteStartedAt || "2026-10-29T00:00:00+08:00"
+  );
   $("home-socials").hidden = !isHome;
   for (const name of ["github", "x", "linkedin", "mail"])
     $("social-" + name).value =
@@ -152,7 +156,7 @@ function openEditor(post) {
   $("settings").querySelector("summary span").textContent = isHome
     ? "社交链接与摘要"
     : isPage
-      ? "页面摘要"
+      ? "建站时间与摘要"
       : "摘要、标签、地址与时间";
   $("visit").href = isHome ? "/" : isPage ? "/about/" : "/posts/";
   if (!publishing) $("job-panel").hidden = true;
@@ -185,6 +189,9 @@ function openEditor(post) {
 function readEditor() {
   return {
     ...current,
+    ...(current.id === "about:page"
+      ? { siteStartedAt: new Date($("site-started-at").value).toISOString() }
+      : {}),
     ...(current.id === "home:page"
       ? {
           socials: ["github", "x", "linkedin", "mail"].flatMap(name => {
@@ -449,6 +456,7 @@ document.querySelectorAll("[data-filter]").forEach(
 for (const id of [
   "title",
   "body",
+  "site-started-at",
   "description",
   "tags",
   "author",

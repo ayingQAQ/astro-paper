@@ -77,7 +77,7 @@ export function parsePost(text) {
 }
 export function serializePost(post, published = false) {
   if (isPageId(post.id)) {
-    return `---\n${YAML.stringify({ ...post.metadata, title: post.title, description: post.description, ...(post.id === "home:page" ? { socials: post.socials } : {}) })}---\n\n${post.body}`;
+    return `---\n${YAML.stringify({ ...post.metadata, title: post.title, description: post.description, ...(post.id === "about:page" ? { siteStartedAt: post.siteStartedAt } : {}), ...(post.id === "home:page" ? { socials: post.socials } : {}) })}---\n\n${post.body}`;
   }
   const metadata = {
     ...post.metadata,
@@ -167,6 +167,7 @@ export class ContentStore {
       title: metadata.title,
       description: metadata.description,
       socials: metadata.socials ?? [],
+      siteStartedAt: metadata.siteStartedAt ?? "2026-10-29T00:00:00+08:00",
       author: metadata.author ?? "Wenying",
       tags: metadata.tags ?? [],
       featured: metadata.featured ?? false,
@@ -264,6 +265,15 @@ export class ContentStore {
           400,
           "社交链接请使用完整的 http/https 地址或 mailto: 邮箱地址"
         );
+      const siteStartedAt =
+        input.siteStartedAt ??
+        previous?.siteStartedAt ??
+        "2026-10-29T00:00:00+08:00";
+      if (
+        input.id === "about:page" &&
+        !Number.isFinite(Date.parse(siteStartedAt))
+      )
+        throw new HttpError(400, "请输入有效的建站时间");
       const post = {
         id: input.id,
         kind: isPageId(input.id) ? "page" : "post",
@@ -271,6 +281,7 @@ export class ContentStore {
         title,
         description,
         socials,
+        siteStartedAt,
         body,
         author: String(input.author || "Wenying").slice(0, 100),
         pubDatetime,
