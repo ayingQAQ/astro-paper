@@ -26,14 +26,9 @@ const { Content } = await render(about);
   <Header />
 
   <Main pageTitle={about.data.title} hideHeading class="app-prose pt-8">
-    <Content />
-    <p>
-      本站已运行 <span
-        id="site-uptime"
-        data-start={about.data.siteStartedAt.toISOString()}
-        style="font-variant-numeric: tabular-nums">0</span
-      > 秒
-    </p>
+    <div id="about-content" data-start={about.data.siteStartedAt.toISOString()}>
+      <Content />
+    </div>
   </Main>
 
   <Footer />
@@ -43,12 +38,41 @@ const { Content } = await render(about);
   let timer: ReturnType<typeof setInterval> | undefined;
   function startUptime() {
     clearInterval(timer);
-    const counter = document.querySelector<HTMLElement>("#site-uptime");
-    if (!counter) return;
-    const start = Date.parse(counter.dataset.start!);
+    const root = document.querySelector<HTMLElement>("#about-content");
+    if (!root) return;
+    const start = Date.parse(root.dataset.start!);
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (
+        node.textContent?.includes("{{uptime}}") &&
+        !node.parentElement?.closest("pre, code, script, style")
+      )
+        nodes.push(node);
+    }
+    for (const node of nodes) {
+      const fragment = document.createDocumentFragment();
+      const parts = node.textContent!.split("{{uptime}}");
+      parts.forEach((part, index) => {
+        if (index) {
+          const span = document.createElement("span");
+          span.dataset.uptime = "";
+          span.style.fontVariantNumeric = "tabular-nums";
+          fragment.append(span);
+        }
+        fragment.append(document.createTextNode(part));
+      });
+      node.replaceWith(fragment);
+    }
+    const counters = root.querySelectorAll<HTMLElement>("[data-uptime]");
+    if (!counters.length) return;
     const update = () => {
-      counter.textContent = String(
-        Math.max(0, Math.floor((Date.now() - start) / 1000))
+      counters.forEach(
+        counter =>
+          (counter.textContent = String(
+            Math.max(0, Math.floor((Date.now() - start) / 1000))
+          ))
       );
     };
     update();
